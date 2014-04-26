@@ -8,3 +8,5 @@ target
 bin
 dependency-reduced-pom.xml
 /*.wav
+*.wav.flac
+*.flac

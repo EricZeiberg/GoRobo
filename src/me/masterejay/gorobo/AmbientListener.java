@@ -1,74 +1,66 @@
 package me.masterejay.gorobo;
 
-import com.darkprograms.speech.microphone.Microphone;
 import com.darkprograms.speech.microphone.MicrophoneAnalyzer;
 import com.darkprograms.speech.recognizer.GoogleResponse;
 import com.darkprograms.speech.recognizer.Recognizer;
-import javaFlacEncoder.FLACFileWriter;
 
 import javax.sound.sampled.AudioFileFormat;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.RandomAccessFile;
 
 /**
  * @author MasterEjay
  */
 public class AmbientListener{
 
-	private static final  MicrophoneAnalyzer microphoneAnalyzer = new MicrophoneAnalyzer(AudioFileFormat.Type.WAVE);
-
-	public static void ambientListening() throws Exception{
-		Microphone mic = new Microphone(FLACFileWriter.FLAC);
-		String filename = "test.wav";
-		File file = new File("testfile.flac");//Name your file whatever you want
-    /* User records the voice here. Microphone starts a separate thread so do whatever you want
-     * in the mean time. Show a recording icon or whatever.
-     */
-		microphoneAnalyzer.open();
-		microphoneAnalyzer.captureAudioToFile(filename);
-		int THRESHOLD = 7;
-		System.out.println(microphoneAnalyzer.getAudioVolume());
-		boolean isSpeaking;
-			if (microphoneAnalyzer.getAudioVolume() >= THRESHOLD ){
-				System.out.println("Recording...");
-				isSpeaking = true;
-				while(isSpeaking){
-					mic.captureAudioToFile(file);
-					if (microphoneAnalyzer.getAudioVolume() <= THRESHOLD){
-						isSpeaking = false;
-						mic.close();
-						System.out.println("Recording stopped.");
-						Recognizer recognizer = new Recognizer(Recognizer.Languages.ENGLISH_US);//Specify your language here.
-						//Although auto-detect is avalible, it is recommended you select your region for added accuracy.
-						try {
-							int maxNumOfResponses = 4;
-							GoogleResponse response = recognizer.getRecognizedDataForFlac(file, maxNumOfResponses);
-							System.out.println("Google Response: " + response.getResponse());
-							System.out.println("Google is " + Double.parseDouble(response.getConfidence())*100 + "% confident in"
-									+ " the reply");
-							System.out.println("Other Possible responses are: ");
-							for(String s: response.getOtherPossibleResponses()){
-								System.out.println("\t" + s);
-							}
-							if (response.getResponse() != null){
-								ModuleHandler.moduleExecute(response.getResponse());
-							}
-						} catch (Exception ex) {
-							// TODO Handle how to respond if Google cannot be contacted
-							System.out.println("ERROR: Google cannot be contacted");
-							ex.printStackTrace();
-						}
-
-						file.deleteOnExit();//Deletes the file as it is no longer necessary.
-						ambientListening();
+	public static void ambientListening(){
+		MicrophoneAnalyzer mic = new MicrophoneAnalyzer(AudioFileFormat.Type.WAVE);
+		mic.setAudioFile(new File("AudioTestNow.wav"));
+		while(true){
+			mic.open();
+			final int THRESHOLD = 8;
+			int volume = mic.getAudioVolume();
+			boolean isSpeaking = (volume > THRESHOLD);
+			if(isSpeaking){
+				try {
+					System.out.println("RECORDING...");
+					mic.captureAudioToFile(mic.getAudioFile());
+					do{
+						Thread.sleep(1000);//Updates every second
 					}
+					while(mic.getAudioVolume() > THRESHOLD);
+					System.out.println("Recording Complete!");
+					System.out.println("Recognizing...");
+					Recognizer rec = new Recognizer(Recognizer.Languages.AUTO_DETECT);
+					GoogleResponse response = rec.getRecognizedDataForWave(mic.getAudioFile(), 3);
+					displayResponse(response);
+					System.out.println("Looping back");
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					System.out.println("Error Occured");
 				}
-			}
-			else {
-				Thread.sleep(100);
-				ambientListening();
+				finally{
+					mic.close();
+				}
 			}
 		}
 	}
+
+	private static void displayResponse(GoogleResponse gr){
+		if(gr.getResponse() == null){
+			System.out.println((String)null);
+			return;
+		}
+		System.out.println("Google Response: " + gr.getResponse());
+		System.out.println("Google is " + Double.parseDouble(gr.getConfidence())*100 + "% confident in"
+				+ " the reply");
+		System.out.println("Other Possible responses are: ");
+		for(String s: gr.getOtherPossibleResponses()){
+			System.out.println("\t" + s);
+		}
+		if (gr.getResponse() != null){
+			ModuleHandler.moduleExecute(gr.getResponse());
+		}
+	}
+
+}
